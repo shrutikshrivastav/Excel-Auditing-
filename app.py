@@ -953,8 +953,9 @@ def generate_excel_report(df: pd.DataFrame, audit: dict) -> io.BytesIO:
 # ── routes ───────────────────────────────────────────────────────────────────
 @app.route("/")
 def index():
-    with open("index.html", "r", encoding="utf-8") as f:
-        return f.read(), 200, {"Content-Type": "text/html"}
+    with open("index.html", "rb") as f:
+        html_bytes = f.read()
+    return html_bytes, 200, {"Content-Type": "text/html; charset=utf-8"}
 
 
 @app.route("/analyze", methods=["POST"])
@@ -966,12 +967,28 @@ def analyze():
         file = request.files["file"]
         filename = file.filename
 
-        if filename.endswith(".csv"):
-            df = pd.read_csv(file)
-        elif filename.endswith((".xlsx", ".xls")):
-            df = pd.read_excel(file)
+        file_bytes = io.BytesIO(file.read())
+
+        if filename.lower().endswith(".csv"):
+            # Try multiple encodings for CSV
+            for enc in ("utf-8", "latin-1", "cp1252", "iso-8859-1"):
+                try:
+                    file_bytes.seek(0)
+                    df = pd.read_csv(file_bytes, encoding=enc)
+                    break
+                except (UnicodeDecodeError, Exception):
+                    continue
+            else:
+                return jsonify({"error": "Could not decode CSV file. Try saving as UTF-8."}), 400
+        elif filename.lower().endswith((".xlsx", ".xls")):
+            try:
+                file_bytes.seek(0)
+                engine = "openpyxl" if filename.lower().endswith(".xlsx") else "xlrd"
+                df = pd.read_excel(file_bytes, engine=engine)
+            except Exception as xe:
+                return jsonify({"error": f"Excel read error: {str(xe)}"}), 400
         else:
-            return jsonify({"error": "Only CSV or Excel files are supported."}), 400
+            return jsonify({"error": "Only CSV, XLSX, or XLS files are supported."}), 400
 
         if df.empty:
             return jsonify({"error": "Uploaded file is empty."}), 400
@@ -1045,3 +1062,4 @@ def download(key):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
