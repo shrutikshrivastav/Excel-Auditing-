@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Excel Audit System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+  /* ── reset & base ─────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0d0303;
+    --bg2:       #150606;
+    --bg3:       #1e0808;
+    --surface:   #220909;
+    --border:    #3a0e0e;
+    --accent:    #c0392b;
+    --accent2:   #e74c3c;
+    --gold:      #d4ac0d;
+    --gold2:     #f0c30f;
+    --text:      #f0e6e6;
+    --muted:     #8a6666;
+    --green:     #27ae60;
+    --orange:    #e67e22;
+    --red:       #c0392b;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── noise overlay ─────────────────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+    opacity: 0.028;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── grid bg ───────────────────────────────────────────────── */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(192,57,43,.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(192,57,43,.07) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── layout ────────────────────────────────────────────────── */
+  .wrap {
+    position: relative; z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 28px 80px;
+  }
+
+  /* ── header ────────────────────────────────────────────────── */
+  header {
+    position: relative;
+    padding: 52px 0 36px;
+    display: flex;
+    align-items: flex-end;
+    gap: 20px;
+  }
+
+  .logo-mark {
+    width: 54px; height: 54px;
+    background: var(--accent);
+    display: grid;
+    place-items: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    color: #fff;
+    flex-shrink: 0;
+    clip-path: polygon(0 0,100% 0,100% 75%,75% 100%,0 100%);
+  }
+
+  .header-text h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(2.2rem, 5vw, 3.8rem);
+    letter-spacing: .04em;
+    line-height: 1;
+    color: var(--text);
+  }
+
+  .header-text h1 span { color: var(--accent2); }
+
+  .header-text p {
+    font-size: .82rem;
+    color: var(--muted);
+    margin-top: 6px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, var(--accent) 0%, var(--border) 60%, transparent 100%);
+    margin-bottom: 36px;
+  }
+
+  /* ── upload zone ───────────────────────────────────────────── */
+  .upload-zone {
+    border: 1.5px dashed var(--border);
+    border-radius: 4px;
+    padding: 56px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    background: var(--bg2);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .upload-zone::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(192,57,43,.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .upload-zone:hover,
+  .upload-zone.drag-over {
+    border-color: var(--accent);
+    background: var(--bg3);
+  }
+
+  .upload-zone.drag-over { border-style: solid; }
+
+  .upload-icon {
+    font-size: 3rem;
+    display: block;
+    margin-bottom: 14px;
+    filter: drop-shadow(0 0 12px rgba(192,57,43,.5));
+  }
+
+  .upload-zone h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.8rem;
+    letter-spacing: .05em;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+
+  .upload-zone p {
+    font-size: .82rem;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .upload-zone input[type="file"] {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 28px;
+    border: none;
+    border-radius: 2px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: .88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .18s;
+    letter-spacing: .04em;
+    text-decoration: none;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { background: var(--accent2); transform: translateY(-1px); }
+
+  .btn-gold {
+    background: var(--gold);
+    color: #1a0a0a;
+  }
+  .btn-gold:hover { background: var(--gold2); transform: translateY(-1px); }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent2); }
+
+  /* ── status bar ────────────────────────────────────────────── */
+  .status-bar {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    margin-top: 20px;
+    padding: 14px 20px;
+    background: var(--surface);
+    border-left: 3px solid var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: .82rem;
+    color: var(--muted);
+  }
+
+  .status-bar.active { display: flex; }
+
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── results ───────────────────────────────────────────────── */
+  #results { display: none; margin-top: 44px; }
+
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+
+  /* health score gauge */
+  .health-block {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .health-block::after {
+    content: '';
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: 4px;
+    background: var(--score-color, var(--accent));
+  }
+
+  .score-ring {
+    position: relative;
+    width: 90px; height: 90px;
+    flex-shrink: 0;
+  }
+
+  .score-ring svg { transform: rotate(-90deg); }
+
+  .score-ring .ring-bg {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 6;
+  }
+
+  .score-ring .ring-fill {
+    fill: none;
+    stroke: var(--score-color, var(--accent));
+    stroke-width: 6;
+    stroke-linecap: round;
+    stroke-dasharray: 251.2;
+    stroke-dashoffset: 251.2;
+    transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1);
+  }
+
+  .score-number {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem;
+    line-height: 1;
+  }
+
+  .score-number small {
+    font-family: 'DM Mono', monospace;
+    font-size: .55rem;
+    color: var(--muted);
+    letter-spacing: .08em;
+  }
+
+  .health-info h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem;
+    letter-spacing: .04em;
+    margin-bottom: 4px;
+  }
+
+  .health-info p {
+    font-size: .83rem;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* ── metric grid ───────────────────────────────────────────── */
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 18px 16px;
+    position: relative;
+    overflow: hidden;
+    animation: fadeUp .4s ease both;
+  }
+
+  .metric-card::before {
+    content: '';
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--card-accent, var(--border));
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .metric-card .label {
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    margin-bottom: 8px;
+  }
+
+  .metric-card .value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    line-height: 1;
+    color: var(--card-accent, var(--text));
+  }
+
+  .metric-card .sub {
+    font-size: .72rem;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* ── findings table ────────────────────────────────────────── */
+  .findings {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+
+  .findings-header {
+    display: grid;
+    grid-template-columns: 1fr 2fr 100px;
+    padding: 10px 20px;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .finding-row {
+    display: grid;
+    grid-template-columns: 1fr 2fr 100px;
+    padding: 12px 20px;
+    border-bottom: 1px solid rgba(58,14,14,.6);
+    align-items: center;
+    animation: fadeUp .35s ease both;
+  }
+
+  .finding-row:last-child { border-bottom: none; }
+
+  .finding-row:hover { background: var(--bg3); }
+
+  .finding-cat {
+    font-weight: 600;
+    font-size: .85rem;
+    color: var(--text);
+  }
+
+  .finding-desc {
+    font-size: .8rem;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    padding-right: 12px;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 1px;
+    font-size: .68rem;
+    font-weight: 700;
+    font-family: 'DM Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+
+  .badge-high   { background: #3d0d0d; color: var(--accent2); border: 1px solid var(--accent); }
+  .badge-medium { background: #3d2200; color: var(--orange);  border: 1px solid var(--orange); }
+  .badge-low    { background: #2d2200; color: var(--gold);    border: 1px solid var(--gold); }
+  .badge-ok     { background: #0d2e1a; color: var(--green);   border: 1px solid var(--green); }
+
+  /* ── column list ───────────────────────────────────────────── */
+  .col-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    padding: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+
+  .col-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    font-size: .75rem;
+    font-family: 'DM Mono', monospace;
+    color: var(--muted);
+    border-radius: 1px;
+  }
+
+  .col-pill .type-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .type-numeric { background: var(--gold); }
+  .type-text    { background: var(--accent2); }
+  .type-date    { background: var(--green); }
+  .type-empty   { background: var(--muted); }
+
+  /* ── download panel ────────────────────────────────────────── */
+  .download-panel {
+    padding: 32px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--accent);
+    text-align: center;
+  }
+
+  .download-panel h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem;
+    letter-spacing: .04em;
+    margin-bottom: 8px;
+  }
+
+  .download-panel p {
+    font-size: .82rem;
+    color: var(--muted);
+    margin-bottom: 22px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .download-panel .sheets-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 24px;
+    font-family: 'DM Mono', monospace;
+    font-size: .75rem;
+    color: var(--muted);
+  }
+
+  .sheet-tag {
+    padding: 4px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 1px;
+  }
+
+  /* ── error state ───────────────────────────────────────────── */
+  .error-box {
+    display: none;
+    margin-top: 16px;
+    padding: 16px 20px;
+    background: #1a0505;
+    border-left: 3px solid var(--red);
+    font-family: 'DM Mono', monospace;
+    font-size: .82rem;
+    color: var(--accent2);
+  }
+
+  /* ── footer ────────────────────────────────────────────────── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 20px 0;
+    text-align: center;
+    font-family: 'DM Mono', monospace;
+    font-size: .72rem;
+    color: var(--muted);
+    letter-spacing: .06em;
+  }
+
+  /* ── responsive ────────────────────────────────────────────── */
+  @media (max-width: 600px) {
+    .metric-grid { grid-template-columns: 1fr 1fr; }
+    .findings-header,
+    .finding-row { grid-template-columns: 1fr 1fr; }
+    .finding-row .badge { display: none; }
+    .health-block { flex-direction: column; text-align: center; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- header -->
+  <header>
+    <div class="logo-mark">XL</div>
+    <div class="header-text">
+      <h1>EXCEL <span>AUDIT</span> SYSTEM</h1>
+      <p>Dataset integrity analysis &amp; report generation</p>
+    </div>
+  </header>
+  <div class="divider"></div>
+
+  <!-- upload -->
+  <p class="section-label">Upload Dataset</p>
+  <div class="upload-zone" id="dropZone">
+    <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" />
+    <span class="upload-icon">📂</span>
+    <h2>Drop your file here</h2>
+    <p>Supports CSV &nbsp;·&nbsp; XLSX &nbsp;·&nbsp; XLS &nbsp;·&nbsp; click to browse</p>
+  </div>
+
+  <!-- status -->
+  <div class="status-bar" id="statusBar">
+    <div class="spinner"></div>
+    <span id="statusText">Uploading file…</span>
+  </div>
+
+  <!-- error -->
+  <div class="error-box" id="errorBox"></div>
+
+  <!-- results -->
+  <section id="results">
+
+    <!-- health score -->
+    <p class="section-label" style="margin-top:36px">Dataset Health</p>
+    <div class="health-block" id="healthBlock">
+      <div class="score-ring">
+        <svg width="90" height="90" viewBox="0 0 90 90">
+          <circle class="ring-bg" cx="45" cy="45" r="40"/>
+          <circle class="ring-fill" id="ringFill" cx="45" cy="45" r="40"/>
+        </svg>
+        <div class="score-number">
+          <span id="scoreNum">—</span>
+          <small>SCORE</small>
+        </div>
+      </div>
+      <div class="health-info">
+        <h3 id="healthLabel">—</h3>
+        <p id="healthSub">—</p>
+      </div>
+    </div>
+
+    <!-- metrics -->
+    <p class="section-label">Quick Stats</p>
+    <div class="metric-grid" id="metricGrid"></div>
+
+    <!-- findings -->
+    <p class="section-label">Audit Findings</p>
+    <div class="findings">
+      <div class="findings-header">
+        <span>Category</span>
+        <span>Details</span>
+        <span>Severity</span>
+      </div>
+      <div id="findingsList"></div>
+    </div>
+
+    <!-- columns -->
+    <p class="section-label">Detected Columns <span id="colCount" style="color:var(--muted)"></span></p>
+    <div class="col-pills" id="colPills"></div>
+
+    <!-- download -->
+    <div class="download-panel">
+      <h3>Report Ready for Download</h3>
+      <p>A multi-sheet Excel file has been prepared with all findings, cleaned data, KPIs, and charts.</p>
+      <div class="sheets-list">
+        <span class="sheet-tag">📋 Audit Summary</span>
+        <span class="sheet-tag">🧹 Cleaned Data</span>
+        <span class="sheet-tag">📊 KPI Dashboard</span>
+        <span class="sheet-tag">❌ Error Analysis</span>
+        <span class="sheet-tag">📈 Charts &amp; Visuals</span>
+        <span class="sheet-tag">💡 Insights</span>
+      </div>
+      <button class="btn btn-gold" id="downloadBtn">
+        ⬇ &nbsp;Download Excel Report
+      </button>
+      &nbsp;&nbsp;
+      <button class="btn btn-outline" id="resetBtn">
+        ↺ &nbsp;Analyze Another File
+      </button>
+    </div>
+
+  </section>
+
+  <br/><br/>
+  <footer>EXCEL AUDIT SYSTEM &nbsp;·&nbsp; BUILT FOR DATA INTEGRITY &nbsp;·&nbsp; CSV / XLSX SUPPORT</footer>
+
+</div>
+
+<script>
+  let reportKey = null;
+
+  const dropZone   = document.getElementById('dropZone');
+  const fileInput  = document.getElementById('fileInput');
+  const statusBar  = document.getElementById('statusBar');
+  const statusText = document.getElementById('statusText');
+  const errorBox   = document.getElementById('errorBox');
+  const results    = document.getElementById('results');
+
+  // ── drag & drop ──────────────────────────────────────────────
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+  });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) uploadFile(file);
+  });
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) uploadFile(fileInput.files[0]);
+  });
+
+  // ── upload ───────────────────────────────────────────────────
+  async function uploadFile(file) {
+    resetUI();
+    showStatus(`Uploading "${file.name}" …`);
+
+    const fd = new FormData();
+    fd.append('file', file);
+
+    try {
+      const res = await fetch('/analyze', { method: 'POST', body: fd });
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        showError(data.error || 'Unknown error');
+        return;
+      }
+
+      hideStatus();
+      reportKey = data.report_key;
+      renderResults(data);
+    } catch (err) {
+      showError('Network error — is the server running?');
+    }
+  }
+
+  // ── render results ───────────────────────────────────────────
+  function renderResults(d) {
+    results.style.display = 'block';
+
+    // health score
+    const score = d.health_score;
+    const scoreColor =
+      score >= 80 ? 'var(--green)' :
+      score >= 50 ? 'var(--orange)' : 'var(--red)';
+
+    document.getElementById('healthBlock').style.setProperty('--score-color', scoreColor);
+
+    const ring = document.getElementById('ringFill');
+    ring.style.stroke = scoreColor;
+    const circumference = 251.2;
+    setTimeout(() => {
+      ring.style.strokeDashoffset = circumference - (circumference * score / 100);
+    }, 80);
+
+    document.getElementById('scoreNum').textContent = score;
+    document.getElementById('scoreNum').style.color = scoreColor;
+
+    const label =
+      score >= 80 ? 'EXCELLENT' :
+      score >= 60 ? 'GOOD' :
+      score >= 40 ? 'NEEDS WORK' : 'CRITICAL';
+    const sub =
+      score >= 80 ? 'Dataset passed most integrity checks.' :
+      score >= 60 ? 'Minor issues detected — review before use.' :
+      score >= 40 ? 'Several issues require attention.' :
+                    'Serious data integrity problems found.';
+
+    document.getElementById('healthLabel').textContent = label;
+    document.getElementById('healthLabel').style.color = scoreColor;
+    document.getElementById('healthSub').textContent = sub;
+
+    // metrics
+    const metrics = [
+      { label: 'Total Rows',       value: d.rows,               color: 'var(--accent2)',  sub: 'records' },
+      { label: 'Columns',          value: d.cols,               color: 'var(--gold)',      sub: 'fields' },
+      { label: 'Missing Cells',    value: d.missing_count,      color: d.missing_count > 0 ? 'var(--orange)' : 'var(--green)', sub: `across ${d.missing_cols} cols` },
+      { label: 'Duplicates',       value: d.duplicate_count,    color: d.duplicate_count > 0 ? 'var(--red)' : 'var(--green)', sub: 'duplicate rows' },
+      { label: 'Neg. Profits',     value: d.negative_profit_count, color: d.negative_profit_count > 0 ? 'var(--red)' : 'var(--green)', sub: 'flagged rows' },
+      { label: 'Logic Errors',     value: d.logic_errors,       color: d.logic_errors > 0 ? 'var(--red)' : 'var(--green)',    sub: 'violations' },
+      { label: 'Anomalies',        value: d.anomalies,          color: d.anomalies > 0 ? 'var(--orange)' : 'var(--green)',    sub: 'outlier columns' },
+      { label: 'Suspicious Edits', value: d.suspicious,         color: d.suspicious > 0 ? 'var(--gold)' : 'var(--green)',     sub: 'flagged' },
+    ];
+
+    const grid = document.getElementById('metricGrid');
+    grid.innerHTML = '';
+    metrics.forEach((m, i) => {
+      const el = document.createElement('div');
+      el.className = 'metric-card';
+      el.style.setProperty('--card-accent', m.color);
+      el.style.animationDelay = `${i * 0.05}s`;
+      el.innerHTML = `
+        <div class="label">${m.label}</div>
+        <div class="value" style="color:${m.color}">${m.value}</div>
+        <div class="sub">${m.sub}</div>
+      `;
+      grid.appendChild(el);
+    });
+
+    // findings
+    const findings = buildFindings(d);
+    const list = document.getElementById('findingsList');
+    list.innerHTML = '';
+    findings.forEach((f, i) => {
+      const row = document.createElement('div');
+      row.className = 'finding-row';
+      row.style.animationDelay = `${i * 0.04}s`;
+      const badgeClass =
+        f.sev === 'HIGH'   ? 'badge-high' :
+        f.sev === 'MEDIUM' ? 'badge-medium' :
+        f.sev === 'LOW'    ? 'badge-low' : 'badge-ok';
+      row.innerHTML = `
+        <div class="finding-cat">${f.cat}</div>
+        <div class="finding-desc">${f.desc}</div>
+        <div><span class="badge ${badgeClass}">${f.sev}</span></div>
+      `;
+      list.appendChild(row);
+    });
+
+    // columns
+    document.getElementById('colCount').textContent = `(${d.columns.length} shown)`;
+    const pills = document.getElementById('colPills');
+    pills.innerHTML = '';
+    d.columns.forEach(col => {
+      const type = (d.col_types[col] || 'text').toLowerCase();
+      const pill = document.createElement('div');
+      pill.className = 'col-pill';
+      pill.innerHTML = `<span class="type-dot type-${type}"></span>${col}`;
+      pills.appendChild(pill);
+    });
+  }
+
+  function buildFindings(d) {
+    const f = [];
+    if (d.missing_count > 0)
+      f.push({ cat: 'Missing Values', desc: `${d.missing_count} cells across ${d.missing_cols} column(s)`, sev: d.missing_count > 50 ? 'HIGH' : 'MEDIUM' });
+    if (d.duplicate_count > 0)
+      f.push({ cat: 'Duplicate Rows', desc: `${d.duplicate_count} exact duplicate rows found`, sev: 'HIGH' });
+    if (d.negative_profit_count > 0)
+      f.push({ cat: 'Negative Profits', desc: `${d.negative_profit_count} rows with negative profit values`, sev: 'HIGH' });
+    if (d.logic_errors > 0)
+      f.push({ cat: 'Business Logic', desc: `${d.logic_errors} rule violation(s) detected`, sev: 'HIGH' });
+    if (d.anomalies > 0)
+      f.push({ cat: 'Statistical Anomalies', desc: `${d.anomalies} column(s) contain Z-score outliers (>3σ)`, sev: 'MEDIUM' });
+    if (d.suspicious > 0)
+      f.push({ cat: 'Suspicious Edits', desc: `${d.suspicious} column(s) flagged for unusual rounding patterns`, sev: 'LOW' });
+    if (f.length === 0)
+      f.push({ cat: 'All Checks Passed', desc: 'No integrity issues detected in this dataset', sev: 'OK' });
+    return f;
+  }
+
+  // ── download ─────────────────────────────────────────────────
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    if (!reportKey) return;
+    const btn = document.getElementById('downloadBtn');
+    btn.textContent = '⏳  Generating…';
+    btn.disabled = true;
+
+    const a = document.createElement('a');
+    a.href = `/download/${reportKey}`;
+    a.download = 'audit_report.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    setTimeout(() => {
+      btn.innerHTML = '⬇ &nbsp;Download Excel Report';
+      btn.disabled = false;
+    }, 2500);
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    resetUI();
+    results.style.display = 'none';
+    reportKey = null;
+    fileInput.value = '';
+  });
+
+  // ── helpers ──────────────────────────────────────────────────
+  function showStatus(msg) {
+    statusText.textContent = msg;
+    statusBar.classList.add('active');
+    errorBox.style.display = 'none';
+  }
+
+  function hideStatus() {
+    statusBar.classList.remove('active');
+  }
+
+  function showError(msg) {
+    hideStatus();
+    errorBox.textContent = '✖  ' + msg;
+    errorBox.style.display = 'block';
+  }
+
+  function resetUI() {
+    hideStatus();
+    errorBox.style.display = 'none';
+    results.style.display = 'none';
+    document.getElementById('ringFill').style.strokeDashoffset = 251.2;
+  }
+</script>
+</body>
+</html>
